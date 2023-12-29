@@ -6,63 +6,89 @@ import FileDrop from './FileDrop'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
-const items = [
-  ['HEMOGLOBINA', 'Hb'],
-  ['LEUCÓCITOS', 'Leuco'],
-  ['PLAQUETAS', 'Plaq'],
-  ['SÓDIO', 'Na'],
-  ['POTÁSSIO', 'K'],
-  ['URÉIA', 'U'],
-  ['CREATININA', 'Cr'],
-  ['TGO', 'TGO'],
-  ['TGP', 'TGP'],
-  ['GAMA GLUTAMIL TRANSFERASE', 'GGT'],
-  ['FOSFATASE ALCALINA', 'FA'],
-  ['BILIRRUBINA TOTAL', 'BT'],
-  ['BILIRRUBINA DIRETA', 'BD'],
-  ['AMILASE', 'Amilase'],
-  ['LIPASE', 'Lipase'],
-  ['INR', 'INR'],
-  ['RELAÇÃO', 'RN'],
-  ['PROTEÍNA C REATIVA', 'PCR'],
+const items: [string, string, number, number?][] = [
+  ['HEMOGLOBINA', 'Hb', 0],
+  ['LEUCÓCITOS', 'Leuco', 0],
+  ['PLAQUETAS', 'Plaq', 0],
+  ['SÓDIO', 'Na', 1],
+  ['POTÁSSIO', 'K', 1, 0],
+  ['URÉIA', 'U', 1],
+  ['CREATININA', 'Cr', 1, 0],
+  ['TGO', 'TGO', 1],
+  ['TGP', 'TGP', 1],
+  ['GAMA GLUTAMIL TRANSFERASE', 'GGT', 1],
+  ['FOSFATASE ALCALINA', 'FA', 1],
+  ['BILIRRUBINA TOTAL', 'BT', 0],
+  ['BILIRRUBINA DIRETA', 'BD', 0],
+  ['AMILASE', 'Amilase', 1],
+  ['LIPASE', 'Lipase', 1], // ask strategy
+  ['INR', 'INR', 0],
+  ['RELAÇÃO', 'RN', 0],
+  ['PROTEÍNA C REATIVA', 'PCR', 0, 0],
 ]
 
-const subItems: [string, string[]][] = [
-  ['Leuco', ['Bastonetes', 'Segmentados']],
+const subItems: [string, string[], number][] = [
+  ['Leuco', ['Bastonetes', 'Segmentados'], 0],
 ]
 
-function searchItem(content: string, search: string): string | undefined {
+function searchItem(
+  content: string,
+  search: string,
+  strategy: number,
+  subStrategy?: number
+): string | undefined {
   console.log('searching for', search)
 
-  const regexPatterns = [
-    new RegExp(`${search}.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
-    new RegExp(`${search}.*?([0-9]+)`, 'gi'), // Matches "1"
-    new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`, 'gi'), // Matches "1.234,56" and "1.234.567,89"
-    new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
+  let regexPatterns = [
+    [
+      new RegExp(`${search}.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
+      new RegExp(`${search}.*?([0-9]+)`, 'gi'), // Matches "1"
+      new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`, 'gi'), // Matches "1.234,56" and "1.234.567,89"
+      new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
+    ],
+    [
+      new RegExp(`${search}.*?resultado.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
+      new RegExp(`${search}.*?resultado.*?([0-9]+)`, 'gi'), // Matches "1"
+      new RegExp(
+        `${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
+        'gi'
+      ), // Matches "1.234,56" and "1.234.567,89"
+      new RegExp(`${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
+    ],
+  ][strategy]
 
-    new RegExp(`${search}.*?resultado.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
-    new RegExp(`${search}.*?resultado.*?([0-9]+)`, 'gi'), // Matches "1"
-    new RegExp(
-      `${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
-      'gi'
-    ), // Matches "1.234,56" and "1.234.567,89"
-    new RegExp(`${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
-  ]
+  if (subStrategy !== undefined) {
+    regexPatterns = [regexPatterns[subStrategy]]
+  }
 
   let earliestMatch = {
     index: Infinity,
     value: undefined as string | undefined,
   }
 
-  regexPatterns.forEach((regex) => {
+  for (const regex of regexPatterns) {
     const matches = Array.from(content.matchAll(regex))
 
-    matches.forEach((match) => {
+    for (const match of matches) {
       // Calculate the index of the capture group
       const captureGroupIndex =
         match.index !== undefined
           ? match.index + match[0].indexOf(match[1])
           : undefined
+
+      console.log(
+        search,
+        'match',
+        match[1],
+        'regex',
+        regex,
+        'captureGroupIndex',
+        captureGroupIndex,
+        'earliestMatch',
+        earliestMatch.index,
+        earliestMatch.value,
+        content.substring(captureGroupIndex! - 5, captureGroupIndex! + 50)
+      )
 
       if (
         captureGroupIndex !== undefined &&
@@ -72,13 +98,13 @@ function searchItem(content: string, search: string): string | undefined {
           captureGroupIndex === earliestMatch.index &&
           match[1].length < (earliestMatch.value?.length ?? -Infinity)
         ) {
-          return
+          continue
         }
 
         earliestMatch = { index: captureGroupIndex, value: match[1] }
       }
-    })
-  })
+    }
+  }
 
   return earliestMatch.value
 }
@@ -114,16 +140,16 @@ const App: React.FC = () => {
       console.log('finished reading content', content.length)
 
       const results = new Map<string, string>()
-      for (const [search, key] of items) {
-        const match = searchItem(content, search)
+      for (const [search, key, strategy, subStrategy] of items) {
+        const match = searchItem(content, search, strategy, subStrategy)
         if (match) {
           results.set(key, match)
         }
       }
 
-      for (const [, searches] of subItems) {
+      for (const [, searches, strategy] of subItems) {
         for (const search of searches) {
-          const match = searchItem(content, search)
+          const match = searchItem(content, search, strategy)
           if (match) {
             results.set(search, match)
           }
@@ -178,7 +204,7 @@ const App: React.FC = () => {
         <FileDrop onFileDrop={handleFileDrop} />
         <div style={{ marginLeft: 20 }}>
           {results.size > 0 &&
-            Array.from(items).map(([_, key]) => {
+            Array.from(items).map(([search, key]) => {
               const value = results.get(key)
               const subItem = subItems.find(([k]) => key === k)?.[1]
 
