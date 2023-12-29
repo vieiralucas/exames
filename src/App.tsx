@@ -31,28 +31,6 @@ const subItems: [string, string[]][] = [
   ['Leuco', ['Bastonetes', 'Segmentados']],
 ]
 
-// function searchItem(content: string, search: string): string | undefined {
-//   console.log('searching for', search)
-//
-//   let regex = new RegExp(`${search}.*?([0-9]+,[0-9]+)`, 'gi')
-//   let match = Array.from(content.matchAll(regex)).map((match) => match[1])[0]
-//   if (match) return match
-//
-//   regex = new RegExp(`${search}.*?([0-9]+)`, 'gi')
-//   match = Array.from(content.matchAll(regex)).map((match) => match[1])[0]
-//   if (match) return match
-//
-//   regex = new RegExp(`${search}.*?resultado.*?([0-9]+)`, 'gi')
-//   match = Array.from(content.matchAll(regex)).map((match) => match[1])[0]
-//   if (match) return match
-//
-//   regex = new RegExp(`${search}.*?resultado.*?([0-9]+,[0-9]+)`, 'gi')
-//   match = Array.from(content.matchAll(regex)).map((match) => match[1])[0]
-//   if (match) return match
-//
-//   return undefined
-// }
-
 function searchItem(content: string, search: string): string | undefined {
   console.log('searching for', search)
 
@@ -60,6 +38,7 @@ function searchItem(content: string, search: string): string | undefined {
     new RegExp(`${search}.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
     new RegExp(`${search}.*?([0-9]+)`, 'gi'), // Matches "1"
     new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`, 'gi'), // Matches "1.234,56" and "1.234.567,89"
+    new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
 
     new RegExp(`${search}.*?resultado.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
     new RegExp(`${search}.*?resultado.*?([0-9]+)`, 'gi'), // Matches "1"
@@ -67,6 +46,7 @@ function searchItem(content: string, search: string): string | undefined {
       `${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
       'gi'
     ), // Matches "1.234,56" and "1.234.567,89"
+    new RegExp(`${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
   ]
 
   let earliestMatch = {
@@ -86,8 +66,15 @@ function searchItem(content: string, search: string): string | undefined {
 
       if (
         captureGroupIndex !== undefined &&
-        captureGroupIndex < earliestMatch.index
+        captureGroupIndex <= earliestMatch.index
       ) {
+        if (
+          captureGroupIndex === earliestMatch.index &&
+          match[1].length < (earliestMatch.value?.length ?? -Infinity)
+        ) {
+          return
+        }
+
         earliestMatch = { index: captureGroupIndex, value: match[1] }
       }
     })
@@ -177,6 +164,14 @@ const App: React.FC = () => {
     .filter(Boolean)
     .join(' // ')
 
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(asStr)
+    } catch (err) {
+      alert(`Falha ao copiar: ${err}`)
+    }
+  }
+
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: 'flex' }}>
@@ -212,7 +207,12 @@ const App: React.FC = () => {
             })}
         </div>
       </div>
-      {results.size > 0 && <pre>{asStr}</pre>}
+      {results.size > 0 && (
+        <>
+          <p>{asStr}</p>
+          <button onClick={copyToClipboard}>Copiar</button>
+        </>
+      )}
       <div style={{ marginTop: 20 }}>
         <input
           id="showNotFound"
