@@ -49,11 +49,21 @@ const FileDrop: React.FC<FileDropProps> = ({ onFileDrop }) => {
             <br />
             <br />
             <span>
-              Arraste outro PDF aqui ou clique para selecionar um arquivo
+              Arraste outro PDF ou{' '}
+              <span style={{ textDecoration: 'underline', color: 'blue' }}>
+                clique aqui
+              </span>{' '}
+              para selecionar um arquivo
             </span>
           </>
         ) : (
-          <span>Arraste o PDF aqui ou clique para selecionar um arquivo</span>
+          <span>
+            Arraste o PDF ou{' '}
+            <span style={{ textDecoration: 'underline', color: 'blue' }}>
+              clique aqui
+            </span>{' '}
+            para selecionar um arquivo
+          </span>
         )}
       </div>
       <input
