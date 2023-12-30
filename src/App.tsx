@@ -39,8 +39,6 @@ function searchItem(
 ): string | undefined {
   content = content.toLowerCase()
 
-  console.log('searching for', search)
-
   // match the string "amilase" then any character or white spaces until finding a integer
   let regexPatterns = [
     [
@@ -86,15 +84,6 @@ function searchItem(
 
   for (const regex of regexPatterns) {
     const matches = Array.from(content.matchAll(regex))
-    if (matches.length === 0) {
-      console.log(regex)
-      console.log(search)
-      console.log(content.indexOf(search))
-      console.log(
-        content.length,
-        content.split(' ').find((w) => w.includes(search))
-      )
-    }
 
     for (const match of matches) {
       // Calculate the index of the capture group
@@ -145,8 +134,6 @@ const App: React.FC = () => {
     },
     [setRawContent]
   )
-
-  console.log(rawContent)
 
   const handleFileDrop = useCallback((file: File) => {
     const fileReader = new FileReader()
@@ -243,9 +230,6 @@ const App: React.FC = () => {
           style={{ width: 400, height: 300 }}
           value={rawContent}
           onChange={onChangeRawContent}
-          onPaste={(e) => {
-            console.log(e.clipboardData.getData('text/plain').length)
-          }}
         />
         <FileDrop onFileDrop={handleFileDrop} />
         <div style={{ marginLeft: 20 }}>
