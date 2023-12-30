@@ -230,6 +230,7 @@ const App: React.FC = () => {
           style={{ width: 400, height: 300 }}
           value={rawContent}
           onChange={onChangeRawContent}
+          placeholder="Cole aqui o texto do PDF"
         />
         <FileDrop onFileDrop={handleFileDrop} />
         <div style={{ marginLeft: 20 }}>
