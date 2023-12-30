@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 // @ts-ignore
 import * as pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker.mjs'
@@ -37,23 +37,41 @@ function searchItem(
   strategy: number,
   subStrategy?: number
 ): string | undefined {
+  content = content.toLowerCase()
+
   console.log('searching for', search)
 
+  // match the string "amilase" then any character or white spaces until finding a integer
   let regexPatterns = [
     [
-      new RegExp(`${search}.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
-      new RegExp(`${search}.*?([0-9]+)`, 'gi'), // Matches "1"
-      new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`, 'gi'), // Matches "1.234,56" and "1.234.567,89"
-      new RegExp(`${search}.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
+      new RegExp(`${search.toLowerCase()}[\\s|\\S]*?([0-9]+,[0-9]+)`, 'gmi'), // Matches "1,23"
+      new RegExp(`${search.toLowerCase()}[\\s|\\S]*?([0-9]+)`, 'gmi'), // Matches "1"
+      new RegExp(
+        `${search.toLowerCase()}[\\s|\\S]*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
+        'gmi'
+      ), // Matches "1.234,56" and "1.234.567,89"
+      new RegExp(
+        `${search.toLowerCase()}[\\s|\\S]*?([0-9]{1,3}(?:\\.[0-9]{3})+)`,
+        'gmi'
+      ), // Matches "1.234" and "1.234.567"
     ],
     [
-      new RegExp(`${search}.*?resultado.*?([0-9]+,[0-9]+)`, 'gi'), // Matches "1,23"
-      new RegExp(`${search}.*?resultado.*?([0-9]+)`, 'gi'), // Matches "1"
       new RegExp(
-        `${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
-        'gi'
+        `${search.toLowerCase()}[\\s|\\S]*?resultado.*?([0-9]+,[0-9]+)`,
+        'gmi'
+      ), // Matches "1,23"
+      new RegExp(
+        `${search.toLowerCase()}[\\s|\\S]*?resultado[\\s|\\S]*?([0-9]+)`,
+        'gmi'
+      ), // Matches "1"
+      new RegExp(
+        `${search.toLowerCase()}[\\s|\\S]*?resultado[\\s|\\S]*?([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]+)`,
+        'gmi'
       ), // Matches "1.234,56" and "1.234.567,89"
-      new RegExp(`${search}.*?resultado.*?([0-9]{1,3}(?:\\.[0-9]{3})+)`, 'gi'), // Matches "1.234" and "1.234.567"
+      new RegExp(
+        `${search.toLowerCase()}[\\s|\\S]*?resultado[\\s|\\S]*?([0-9]{1,3}(?:\\.[0-9]{3})+)`,
+        'gmi'
+      ), // Matches "1.234" and "1.234.567"
     ],
   ][strategy]
 
@@ -68,6 +86,15 @@ function searchItem(
 
   for (const regex of regexPatterns) {
     const matches = Array.from(content.matchAll(regex))
+    if (matches.length === 0) {
+      console.log(regex)
+      console.log(search)
+      console.log(content.indexOf(search))
+      console.log(
+        content.length,
+        content.split(' ').find((w) => w.includes(search))
+      )
+    }
 
     for (const match of matches) {
       // Calculate the index of the capture group
@@ -110,8 +137,16 @@ function searchItem(
 }
 
 const App: React.FC = () => {
-  const [results, setResults] = useState<Map<string, string>>(new Map())
   const [showNotFound, setShowNotFound] = useState(false)
+  const [rawContent, setRawContent] = useState('')
+  const onChangeRawContent = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setRawContent(e.target.value.toLowerCase())
+    },
+    [setRawContent]
+  )
+
+  console.log(rawContent)
 
   const handleFileDrop = useCallback((file: File) => {
     const fileReader = new FileReader()
@@ -138,31 +173,34 @@ const App: React.FC = () => {
       }
 
       console.log('finished reading content', content.length)
-
-      const results = new Map<string, string>()
-      for (const [search, key, strategy, subStrategy] of items) {
-        const match = searchItem(content, search, strategy, subStrategy)
-        if (match) {
-          results.set(key, match)
-        }
-      }
-
-      for (const [, searches, strategy] of subItems) {
-        for (const search of searches) {
-          const match = searchItem(content, search, strategy)
-          if (match) {
-            results.set(search, match)
-          }
-        }
-      }
-
-      setResults(results)
+      setRawContent(content)
     }
 
     fileReader.readAsArrayBuffer(file)
   }, [])
 
-  console.log('rendering', results)
+  const results = useMemo(() => {
+    const content = rawContent
+
+    const results = new Map<string, string>()
+    for (const [search, key, strategy, subStrategy] of items) {
+      const match = searchItem(content, search, strategy, subStrategy)
+      if (match) {
+        results.set(key, match)
+      }
+    }
+
+    for (const [, searches, strategy] of subItems) {
+      for (const search of searches) {
+        const match = searchItem(content, search, strategy)
+        if (match) {
+          results.set(search, match)
+        }
+      }
+    }
+
+    return results
+  }, [rawContent])
 
   const asStr = items
     .map(([_, key]) => {
@@ -188,7 +226,7 @@ const App: React.FC = () => {
       return `${key} ${val || 'N/A'}`
     })
     .filter(Boolean)
-    .join(' // ')
+    .join(' ')
 
   const copyToClipboard = async () => {
     try {
@@ -201,6 +239,14 @@ const App: React.FC = () => {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: 'flex' }}>
+        <textarea
+          style={{ width: 400, height: 300 }}
+          value={rawContent}
+          onChange={onChangeRawContent}
+          onPaste={(e) => {
+            console.log(e.clipboardData.getData('text/plain').length)
+          }}
+        />
         <FileDrop onFileDrop={handleFileDrop} />
         <div style={{ marginLeft: 20 }}>
           {results.size > 0 &&
